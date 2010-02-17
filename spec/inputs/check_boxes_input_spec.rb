@@ -106,61 +106,86 @@ describe 'check_boxes input' do
       end
     end
 
-    describe 'when :selected is set' do
-      before do
-        @output_buffer = ''
-      end
-
-      describe "no selected items" do
-        before do
-          @new_post.stub!(:author_ids).and_return(nil)
-
+    describe ':default option' do
+    
+      describe "when the object is not new and has a single value" do
+        it "should select the object value (ignoring :default)" do
+          output_buffer.replace ''
+          @new_post.stub!(:author_ids => [@bob.id], :authors => [@bob], :new_record? => false)
           semantic_form_for(@new_post) do |builder|
-            concat(builder.input(:authors, :as => :check_boxes, :selected => nil))
+            concat(builder.input(:authors, :as => :check_boxes, :default => [@fred.id]))
           end
-        end
-
-        it 'should not have any selected item(s)' do
-          output_buffer.should_not have_tag("form li fieldset ol li label input[@checked='checked']")
+          output_buffer.should have_tag("form li input[@checked]", :count => 1)
+          output_buffer.should have_tag("form li input[@value='#{@bob.id}'][@checked]", :count => 1)
         end
       end
-
-      describe "single selected item" do
-        before do
-          @new_post.stub!(:author_ids).and_return(nil)
-
+      
+      describe "when the object is new and has multiple values" do
+        it "should select the object values (ignoring :default)" do
+          output_buffer.replace ''
+          @new_post.stub!(:author_ids => [@bob.id, @fred.id], :new_record? => false)
           semantic_form_for(@new_post) do |builder|
-            concat(builder.input(:authors, :as => :check_boxes, :selected => @fred.id))
+            concat(builder.input(:authors, :as => :check_boxes, :default => [@fred.id]))
           end
-        end
-
-        it "should have one item selected; the specified one" do
-          output_buffer.should have_tag("form li fieldset ol li label input[@checked='checked']", :count => 1)
-          output_buffer.should have_tag("form li fieldset ol li label[@for='post_author_ids_#{@fred.id}']", /fred/i)
-          output_buffer.should have_tag("form li fieldset ol li label input[@checked='checked'][@value='#{@fred.id}']")
+          output_buffer.should have_tag("form li input[@checked]", :count => 2)
+          output_buffer.should have_tag("form li input[@value='#{@bob.id}'][@checked]", :count => 1)
+          output_buffer.should have_tag("form li input[@value='#{@bob.id}'][@checked]", :count => 1)
         end
       end
-
-      describe "multiple selected items" do
+      
+      describe 'when the object has no value' do
         before do
-          @new_post.stub!(:author_ids).and_return(nil)
-
+          @new_post.stub!(:author_ids => [], :authors => [])
+        end
+      
+        it "should not select an option if the :default is nil" do
+          output_buffer.replace ''
           semantic_form_for(@new_post) do |builder|
-            concat(builder.input(:authors, :as => :check_boxes, :selected => [@bob.id, @fred.id]))
+            concat(builder.input(:authors, :as => :check_boxes, :default => nil))
           end
+          output_buffer.should_not have_tag("form li ol li input[@checked]")
         end
 
-        it "should have multiple items selected; the specified ones" do
-          output_buffer.should have_tag("form li fieldset ol li label input[@checked='checked']", :count => 2)
-          output_buffer.should have_tag("form li fieldset ol li label[@for='post_author_ids_#{@bob.id}']", /bob/i)
-          output_buffer.should have_tag("form li fieldset ol li label input[@checked='checked'][@value='#{@bob.id}']")
-          output_buffer.should have_tag("form li fieldset ol li label[@for='post_author_ids_#{@fred.id}']", /fred/i)
-          output_buffer.should have_tag("form li fieldset ol li label input[@checked='checked'][@value='#{@fred.id}']")
+        it "should select a single :default if provided" do
+          output_buffer.replace ''
+          semantic_form_for(@new_post) do |builder|
+            concat(builder.input(:authors, :as => :check_boxes, :default => [@fred.id]))
+          end
+          output_buffer.should have_tag("form li input[@checked]", :count => 1)
+          output_buffer.should have_tag("form li input[@value='#{@fred.id}'][@checked]", :count => 1)
         end
+        
+        it "should select a multiple :default values if provided" do
+          output_buffer.replace ''
+          semantic_form_for(@new_post) do |builder|
+            concat(builder.input(:authors, :as => :check_boxes, :default => [@fred.id, @bob.id]))
+          end
+          output_buffer.should have_tag("form li input[@checked]", :count => 2)
+          output_buffer.should have_tag("form li input[@value='#{@fred.id}'][@checked]", :count => 1)
+        end
+      
       end
-
+    
     end
-
+    
+    it 'should warn about :selected deprecation' do
+      with_deprecation_silenced do
+        ::ActiveSupport::Deprecation.should_receive(:warn)
+        semantic_form_for(@fred) do |builder|
+          concat(builder.input(:posts, :as => :check_boxes, :selected => "whatever"))
+        end
+      end
+    end
+    
+    it 'should warn about :selected deprecation' do
+      with_deprecation_silenced do
+        ::ActiveSupport::Deprecation.should_receive(:warn)
+        semantic_form_for(@fred) do |builder|
+          concat(builder.input(:posts, :as => :check_boxes, :checked => "whatever"))
+        end
+      end
+    end
+    
   end
 
 end

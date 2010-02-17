@@ -1116,6 +1116,13 @@ module Formtastic #:nodoc:
       # CSS or Javascript to a particular checkbox).
       #
       def check_boxes_input(method, options)
+        if options.key?(:selected) || options.key?(:checked)
+          ::ActiveSupport::Deprecation.warn(":selected and :checked are deprecated (and may still have changed behavior) in #{options[:as]} inputs, use :default instead and check your form behavior")
+          options[:default] = options.key?(:selected) ? options[:selected] : options[:checked]
+          options.delete(:selected)
+          options.delete(:checked)
+        end
+        
         collection = find_collection_for_column(method, options)
         html_options = options.delete(:input_html) || {}
 
@@ -1124,10 +1131,16 @@ module Formtastic #:nodoc:
         unchecked_value = options.delete(:unchecked_value) || ''
         html_options    = { :name => "#{@object_name}[#{input_name}][]" }.merge(html_options)
         input_ids       = []
-
-        selected_option_is_present = [:selected, :checked].any? { |k| options.key?(k) }
-        selected_values = (options.key?(:checked) ? options[:checked] : options[:selected]) if selected_option_is_present
-        selected_values  = [*selected_values].compact
+        
+        # Object value trumps :default option if present, but only on existing records, because the 
+        # collection will never be nil, it'll be [], which means we can't detect if the collection
+        # is intentionally empty (trump :default) or not (use :default).  This will still lead some
+        # surprising results -- :default can trump previously selected values in the case of a record
+        # with validation errors that you're trying to save for a second time.
+        association_ids_method = :"#{method.to_s.singularize}_ids"
+        options[:default] = @object.send(association_ids_method) if @object && @object.respond_to?(association_ids_method) && @object.send(association_ids_method) && !@object.new_record?
+        
+        selected_values = [*options[:default]].compact
 
         list_item_content = collection.map do |c|
           label = c.is_a?(Array) ? c.first : c
@@ -1135,7 +1148,7 @@ module Formtastic #:nodoc:
           input_id = generate_html_id(input_name, value.to_s.gsub(/\s/, '_').gsub(/\W/, '').downcase)
           input_ids << input_id
 
-          html_options[:checked] = selected_values.include?(value) if selected_option_is_present
+          html_options[:checked] = selected_values.include?(value)
           html_options[:id] = input_id
 
           li_content = template.content_tag(:label,
